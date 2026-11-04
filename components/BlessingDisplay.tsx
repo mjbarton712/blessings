@@ -19,13 +19,52 @@ function prefersReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+// Fullscreen API, including the webkit-prefixed version older Safari and iPadOS use.
+// iPhone Safari has no page fullscreen, so focus mode falls back to hiding the app chrome.
+type FsDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void> | void;
+};
+type FsElement = HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
+
+function fullscreenElement() {
+  const d = document as FsDocument;
+  return d.fullscreenElement ?? d.webkitFullscreenElement ?? null;
+}
+
+async function requestFullscreen() {
+  const el = document.documentElement as FsElement;
+  try {
+    if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
+    else await el.webkitRequestFullscreen?.();
+  } catch {
+    /* refused or unsupported: chrome-free focus mode still applies */
+  }
+}
+
+async function exitFullscreen() {
+  const d = document as FsDocument;
+  if (!fullscreenElement()) return;
+  try {
+    if (d.exitFullscreen) await d.exitFullscreen();
+    else await d.webkitExitFullscreen?.();
+  } catch {
+    /* already exited */
+  }
+}
+
+const CONTROLS_IDLE_MS = 2800;
+
 export default function BlessingDisplay({ blessings }: BlessingDisplayProps) {
   const [current, setCurrent] = useState<Blessing | null>(null);
   const [today, setToday] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [copied, setCopied] = useState(false);
+  const [focus, setFocus] = useState(false);
+  const [controlsShown, setControlsShown] = useState(true);
 
+  const focusButtonRef = useRef<HTMLButtonElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<gsap.core.Timeline | null>(null);
   const browseButtonRef = useRef<HTMLButtonElement>(null);
@@ -145,59 +184,172 @@ export default function BlessingDisplay({ blessings }: BlessingDisplayProps) {
     };
   }, [isOpen]);
 
-  // Any key (outside the drawer) reveals the rest of the blessing.
+  const enterFocus = useCallback(() => {
+    setIsOpen(false);
+    setFocus(true);
+    // Called synchronously inside the click/keypress so the browser allows it.
+    void requestFullscreen();
+  }, []);
+
+  const exitFocus = useCallback(() => {
+    setFocus(false);
+    void exitFullscreen();
+  }, []);
+
+  // Focus mode: leave when fullscreen ends (e.g. the browser's own Esc), Escape key,
+  // keep the screen awake, and return focus to the toggle afterwards.
+  useEffect(() => {
+    if (!focus) return;
+    const focusButton = focusButtonRef.current;
+
+    let wasFullscreen = !!fullscreenElement();
+    const onFullscreenChange = () => {
+      const now = !!fullscreenElement();
+      if (wasFullscreen && !now) setFocus(false);
+      wasFullscreen = now;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') exitFocus();
+    };
+
+    let lock: WakeLockSentinel | null = null;
+    let cancelled = false;
+    const acquireWakeLock = async () => {
+      if (document.visibilityState !== 'visible' || !('wakeLock' in navigator)) return;
+      try {
+        const next = await navigator.wakeLock.request('screen');
+        if (cancelled) void next.release();
+        else lock = next;
+      } catch {
+        /* not allowed (battery saver, unsupported): fine */
+      }
+    };
+    void acquireWakeLock();
+
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+    document.addEventListener('visibilitychange', acquireWakeLock);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      cancelled = true;
+      void lock?.release();
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
+      document.removeEventListener('visibilitychange', acquireWakeLock);
+      window.removeEventListener('keydown', onKey);
+      focusButton?.focus({ preventScroll: true });
+    };
+  }, [focus, exitFocus]);
+
+  // Focus mode controls fade away (and the cursor hides) when you stop moving.
+  useEffect(() => {
+    if (!focus) return;
+    let timer = 0;
+    const wake = () => {
+      setControlsShown(true);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setControlsShown(false), CONTROLS_IDLE_MS);
+    };
+    wake();
+    const events = ['pointermove', 'pointerdown', 'keydown'] as const;
+    events.forEach((ev) => window.addEventListener(ev, wake));
+    return () => {
+      window.clearTimeout(timer);
+      events.forEach((ev) => window.removeEventListener(ev, wake));
+      setControlsShown(true);
+    };
+  }, [focus]);
+
+  // Space/Enter reveals the rest of the blessing; F toggles focus mode.
   useEffect(() => {
     if (isOpen) return;
     const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.closest('input, textarea')) return;
+      if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        if (focus) exitFocus();
+        else enterFocus();
+        return;
+      }
       if (e.key === ' ' || e.key === 'Enter') {
-        if ((e.target as HTMLElement)?.closest('button, a, input')) return;
+        if ((e.target as HTMLElement)?.closest('button, a')) return;
         e.preventDefault();
         revealAll();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, revealAll]);
+  }, [isOpen, focus, enterFocus, exitFocus, revealAll]);
 
   const isLong = (current?.text.length ?? 0) > 420;
+  const textSize = focus
+    ? isLong
+      ? 'text-[1.4rem] sm:text-[1.8rem] md:text-[2.05rem]'
+      : 'text-[1.6rem] sm:text-[2.1rem] md:text-[2.5rem]'
+    : isLong
+      ? 'text-[1.3rem] sm:text-[1.55rem] md:text-[1.7rem]'
+      : 'text-[1.45rem] sm:text-[1.75rem] md:text-[2rem]';
 
   return (
     <>
       {/* Header */}
-      <header className="fixed inset-x-0 top-0 z-20 flex items-center justify-between px-5 pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-8">
+      <header
+        inert={focus}
+        className={`fixed inset-x-0 top-0 z-20 flex items-center justify-between px-5 pt-[max(1.25rem,env(safe-area-inset-top))] transition-opacity duration-500 sm:px-8 ${
+          focus ? 'pointer-events-none opacity-0' : 'opacity-100'
+        }`}
+      >
         <span className="flex items-center gap-2 font-serif text-lg italic text-ink-soft">
           <SunMark />
           Blessings
         </span>
-        <button
-          ref={browseButtonRef}
-          type="button"
-          onClick={() => setIsOpen(true)}
-          aria-expanded={isOpen}
-          aria-controls="blessing-drawer"
-          className="flex items-center gap-2 rounded-full border border-line bg-paper-raised/70 px-4 py-2 text-sm text-ink-soft backdrop-blur-sm transition-colors hover:border-ink-faint/50 hover:text-ink"
-        >
-          <ListIcon />
-          Browse
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            ref={focusButtonRef}
+            type="button"
+            onClick={enterFocus}
+            aria-label="Focus mode"
+            title="Focus mode (F)"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-paper-raised/70 text-ink-soft backdrop-blur-sm transition-colors hover:border-ink-faint/50 hover:text-ink"
+          >
+            <ExpandIcon />
+          </button>
+          <button
+            ref={browseButtonRef}
+            type="button"
+            onClick={() => setIsOpen(true)}
+            aria-expanded={isOpen}
+            aria-controls="blessing-drawer"
+            className="flex h-9 items-center gap-2 rounded-full border border-line bg-paper-raised/70 px-4 text-sm text-ink-soft backdrop-blur-sm transition-colors hover:border-ink-faint/50 hover:text-ink"
+          >
+            <ListIcon />
+            Browse
+          </button>
+        </div>
       </header>
 
       {/* Blessing */}
-      <main className="flex min-h-svh items-center justify-center px-6 pb-16 pt-28 sm:px-10">
+      <main
+        className={`flex min-h-svh items-center justify-center px-6 sm:px-10 ${
+          focus ? 'pb-28 pt-[max(4rem,env(safe-area-inset-top))]' : 'pb-16 pt-28'
+        } ${focus && !controlsShown ? 'cursor-none' : ''}`}
+      >
         {current && (
-          <article key={current.scripture} className="flex w-full max-w-[40rem] flex-col items-center text-center">
-            <p data-meta className="mb-10 text-[0.7rem] font-medium uppercase tracking-[0.22em] text-ink-faint">
+          <article
+            key={current.scripture}
+            className={`flex w-full flex-col items-center text-center ${focus ? 'max-w-[46rem]' : 'max-w-[40rem]'}`}
+          >
+            <p
+              data-meta
+              className={`mb-10 text-[0.7rem] font-medium uppercase tracking-[0.22em] text-ink-faint ${focus ? 'hidden' : ''}`}
+            >
               {today}
             </p>
 
             <div
               ref={textRef}
               onClick={revealAll}
-              className={`font-serif font-light leading-[1.6] text-ink [text-wrap:pretty] ${
-                isLong
-                  ? 'text-[1.3rem] sm:text-[1.55rem] md:text-[1.7rem]'
-                  : 'text-[1.45rem] sm:text-[1.75rem] md:text-[2rem]'
-              }`}
+              className={`font-serif font-light leading-[1.6] text-ink [text-wrap:pretty] ${textSize}`}
             >
               <p>
                 {sentences.map((s, i) => (
@@ -216,7 +368,7 @@ export default function BlessingDisplay({ blessings }: BlessingDisplayProps) {
                 <span aria-hidden className="h-px w-6 bg-gold/40" />
               </p>
 
-              <div className="flex items-center gap-1 text-sm text-ink-faint">
+              <div className={`flex items-center gap-1 text-sm text-ink-faint ${focus ? 'hidden' : ''}`}>
                 <QuietButton onClick={shuffle}>
                   <ShuffleIcon />
                   Another blessing
@@ -231,6 +383,27 @@ export default function BlessingDisplay({ blessings }: BlessingDisplayProps) {
           </article>
         )}
       </main>
+
+      {/* Focus mode controls: shown on move or tap, fade when idle. */}
+      {focus && (
+        <div
+          className={`fixed inset-x-0 bottom-0 z-20 flex justify-center px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] transition-opacity duration-700 has-[:focus-visible]:pointer-events-auto has-[:focus-visible]:opacity-100 ${
+            controlsShown ? 'opacity-100' : 'pointer-events-none opacity-0'
+          }`}
+        >
+          <div className="flex items-center gap-1 rounded-full border border-line bg-paper-raised/80 px-1.5 py-1 text-sm text-ink-faint shadow-[0_8px_30px_-12px_rgba(80,55,25,0.2)] backdrop-blur-sm">
+            <QuietButton onClick={shuffle}>
+              <ShuffleIcon />
+              Another
+            </QuietButton>
+            <span aria-hidden className="text-line">·</span>
+            <QuietButton onClick={exitFocus}>
+              <CollapseIcon />
+              Exit focus
+            </QuietButton>
+          </div>
+        </div>
+      )}
 
       {/* Overlay */}
       <div
@@ -392,6 +565,22 @@ function CheckIcon() {
   return (
     <svg {...iconProps}>
       <path d="M5 12.5 10 17 19 7" />
+    </svg>
+  );
+}
+
+function ExpandIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+    </svg>
+  );
+}
+
+function CollapseIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
     </svg>
   );
 }

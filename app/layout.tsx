@@ -17,6 +17,11 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: "Blessings",
   description: "A short, scripture-rooted blessing for today.",
+  appleWebApp: {
+    capable: true,
+    title: "Blessings",
+    statusBarStyle: "default",
+  },
 };
 
 export const viewport: Viewport = {
