@@ -6,15 +6,15 @@ export interface Blessing {
 export const blessings: Blessing[] = [
   {
     scripture: "Psalm 23:1-3",
-    text: "May you marvel that the Lord is your Shepherd today. May you see that in Him, you have all that you need and more. May you want nothing more. May you lay down today in the green pastures He is calling you to rest in. May you follow your Father's lead walking beside peaceful streams. It is God who renews your soul's strength. The more time you spend with Him, the more He will transform you to be more like Himself."
+    text: "May you marvel today that the Lord is your Shepherd. May you see that in Him you have all you need, and more. May you want nothing more. May you lie down in the green pastures He is calling you to rest in, and follow your Father's lead beside peaceful streams. It is God who renews your soul's strength."
   },
   {
     scripture: "Ephesians 4:29, Matthew 12:34",
     text: "May your words give grace to those you interact with as you let God's grace for you sink in. May your heart be filled with thanksgiving for the specific ways God has acted with kindness toward you when you didn't deserve it. May it pour out through your speech as an overflow."
   },
   {
-    scripture: "Hebrews 6:19, Psalm 34:5, Isaiah 26:3, 2 Timothy 2:13, Philippians 4:19",
-    text: "In a world filled with deep sorrows, bitterness, complaints, and hopelessness, may your perspective today be a breath of fresh air to those around you. May God's loyal love and forgiveness and the unshakable promise to be with Him always become a deep river of joy in your heart. May it run beneath the rugged terrain of life's mountains and valleys, filling you with hope for the future. May your face be radiant as you look to Him throughout the day. May you find His secure peace as you fix your mind on Him. Know that even though we are not always faithful, our Father is faithful still to take care of the needs of all His children."
+    scripture: "Hebrews 6:19, Psalm 34:5, 2 Timothy 2:13",
+    text: "In a world full of sorrow and hopelessness, may your perspective today be a breath of fresh air to those around you. May God's loyal love and His promise to be with you always run like a deep river of joy beneath the mountains and valleys of life. May your face be radiant as you look to Him. Even when we are not faithful, our Father is faithful still."
   },
   {
     scripture: "1 John 4:16, Ephesians 1:18, 1 Peter 2:9",
@@ -38,19 +38,19 @@ export const blessings: Blessing[] = [
   },
   {
     scripture: "Romans 6:14, Galatians 5:1, Romans 8:1, 1 John 4:19",
-    text: "May this verse be engraved into your view of life, 'sin will have no dominion over you, for we are not under law but under grace' (Romans 6:14). May your life be one under grace, not striving to earn favor but doing the good works God has for you with a joyful and free heart. We are free, beloved! Free from condemnation, free from needing to be perfect, free from sin and death. No longer bound but free to go love and show grace with no ulterior motive other than that He first loved us. He has saved us by His grace - it was never deserved."
+    text: "May this verse be engraved into your view of life, 'sin will have no dominion over you, for we are not under law but under grace' (Romans 6:14). May you live under grace, doing the good works God has for you with a joyful and free heart instead of striving to earn favor. We are free, beloved! Free from condemnation, free from needing to be perfect, free to love and show grace for no other reason than that He first loved us."
   },
   {
     scripture: "Galatians 6:9, Romans 12:21, Luke 23:34",
-    text: "When you are on your last straw, may God give you strength to keep doing acts of kindness, love, generosity, and serving others. Know that you will reap a harvest if you do not give up. May you continue to do good in the face of evil, following in the footsteps of Jesus, who said about those who crucified Him, 'Father, forgive them, for they know not what they do' (Luke 23:34)."
+    text: "When you are at the end of your rope, may God give you strength to keep doing acts of kindness, love, generosity, and serving others. Know that you will reap a harvest if you do not give up. May you continue to do good in the face of evil, following in the footsteps of Jesus, who said about those who crucified Him, 'Father, forgive them, for they know not what they do' (Luke 23:34)."
   },
   {
     scripture: "Hebrews 13:5, Matthew 13:44-46",
-    text: "May you resist the temptation to desire what you do not have. May you instead take a posture of contentment and gratitude. Know that all of us who belong to Christ have the most valuable treasure - God with us both now and always, 'I will never leave you nor forsake you' (Hebrews 13:5). May the promise of the inheritance we have to come be a treasure in a field you are willing to sell everything for. It is priceless to have Jesus and the life He has for us, both now and to come."
+    text: "May you resist the temptation to desire what you do not have, and take a posture of contentment and gratitude instead. Know that all of us who belong to Christ have the most valuable treasure: God with us both now and always, 'I will never leave you nor forsake you' (Hebrews 13:5). May Jesus be the treasure in a field you are willing to sell everything for."
   },
   {
     scripture: "Colossians 3:14, Matthew 22:37-39, Psalm 63:3",
-    text: "Above all, may you put on love today - love for God, and out of that love, love for people. May He fill up your cup today that it would overflow as you meditate, really thinking about, His love for you. May you come to know His love in a new way such that it becomes the source of all your joy."
+    text: "Above all, may you put on love today - love for God, and out of that love, love for people. May He fill up your cup today that it would overflow as you meditate on His love for you. May you come to know His love in a new way such that it becomes the source of all your joy."
   },
   {
     scripture: "Matthew 7:12",
@@ -58,7 +58,7 @@ export const blessings: Blessing[] = [
   },
   {
     scripture: "Proverbs 3:5-6, 1 Thessalonians 5:17, Psalm 18:2",
-    text: "In every step of this day and year, may you bring God into your life, your thoughts and decision-making, your actions, your relationships, and your work. In everything from the most delightful situations to the most devastating circumstances, to the mundane errands of the day that need to get done, may you be constantly in prayer. May you be constantly aware of the powerful and loving God we serve, in communion with Him. He is our fortress and our rock."
+    text: "In every step of this day, may you bring God into your thoughts, your decisions, your relationships, and your work. In the delightful moments, the devastating ones, and the ordinary errands in between, may you be constantly in prayer, aware of the powerful and loving God we serve. He is our fortress and our rock."
   },
   {
     scripture: "1 Thessalonians 5:18",
@@ -66,55 +66,47 @@ export const blessings: Blessing[] = [
   },
   {
     scripture: "Luke 10:20, Philippians 4:4",
-    text: "As you walk, read, work, eat, and go about your day today, may God fill you with wonder and awe that you are alive on earth today. Furthermore, may you be able to rejoice today, along with all who trust Jesus, in the simple fact that your name is written in the book of life, in heaven. Your future is secure, and you already have a place there that God is preparing for you. May that alone be your primary reason to rejoice - independent of how your day goes today."
+    text: "As you walk, read, work, and eat today, may God fill you with wonder that you are alive. And may you rejoice, along with all who trust Jesus, that your name is written in the book of life. Your future is secure, and God is already preparing a place for you. May that be your reason to rejoice, however your day goes."
   },
   {
     scripture: "Colossians 3:23-24, Psalm 62:5",
-    text: "May you devote your work to the Lord today, knowing that all your labor is ultimately to serve Him and not people. May you do excellently at whatever job you do and see that as a way to glorify your Maker. And all the while, may you hold lightly to your work in that it is not your identity. In itself, you will not find full satisfaction, neither in the wealth you may receive from your labor. May you always remember that in God alone your soul will find satisfaction and rest."
+    text: "May you devote your work to the Lord today, knowing that all your labor is ultimately to serve Him and not people. May you do excellently at whatever job you do as a way to glorify your Maker. And all the while, may you hold your work lightly. It is not your identity, and neither it nor the wealth it brings will fully satisfy you. In God alone your soul will find rest."
   },
   {
-    scripture: "Psalm 46:1-3",
-    text: "Whenever you notice yourself feeling tense or upset or stressed today, may you see it as a way to worship God by letting go of control that you never really had. May you embrace the messy nature of life with grace and love. May God give you the perspective to see the beauty found in selfless love. Oh, how precious to selflessly serve others and to love well!"
+    scripture: "Psalm 46:10",
+    text: "Whenever you notice yourself feeling tense or upset or stressed today, may you see it as a way to worship God by letting go of control that you never really had. Be still, and know that He is God. May you embrace the messy nature of life with grace and love."
   },
   {
     scripture: "Philippians 4:6-7",
-    text: "May you not be anxious about anything today. Instead, may you bring everything to God in prayer - every worry, every fear, every burden. May you experience His peace that transcends all understanding. May this peace guard your heart and mind in Christ Jesus. May your requests be made known to God with thanksgiving, trusting that He hears you and cares for you deeply."
+    text: "May you not be anxious about anything today. Instead, may you bring everything to God in prayer, with thanksgiving. May His peace, which transcends all understanding, guard your heart and mind in Christ Jesus."
   },
   {
     scripture: "Psalm 37:4-5",
-    text: "May you delight yourself in the Lord today, and may He give you the desires of your heart. May you commit your way to Him and trust in Him. He will act. May you find your greatest joy not in circumstances or possessions, but in knowing and walking with the God who loves you."
+    text: "May you delight yourself in the Lord today, and may He give you the desires of your heart. May you commit your way to Him and trust in Him. He will act."
   },
   {
     scripture: "Psalm 91:1-2",
-    text: "May you dwell in the shelter of the Most High and rest in the shadow of the Almighty today. May you say of the Lord, 'He is my refuge and my fortress, my God, in whom I trust' (Psalm 91:2). When troubles come, may you run to Him as your safe place. Know that He is near and He protects those who love Him."
-  },
-  {
-    scripture: "Psalm 16:11",
-    text: "May God make known to you the path of life today. In His presence may you find fullness of joy. At His right hand are pleasures forevermore. May you seek Him first, knowing that all other good things flow from Him."
+    text: "May you dwell in the shelter of the Most High and rest in the shadow of the Almighty today. When trouble comes, may you say of the Lord, 'He is my refuge and my fortress, my God, in whom I trust.'"
   },
   {
     scripture: "Psalm 27:13-14",
-    text: "May you remain confident that you will see the goodness of the Lord in the land of the living. Wait for the Lord. Be strong and take heart and wait for the Lord. May patience grow in you as you trust His timing."
+    text: "May you remain confident that you will see the goodness of the Lord in the land of the living. Wait for the Lord. Be strong and take heart and wait for the Lord."
   },
   {
     scripture: "Psalm 103:1-5",
-    text: "May you bless the Lord today with all your soul, and forget not all His benefits. He forgives all your sins and heals all your diseases. He redeems your life from the pit and crowns you with love and compassion. He satisfies your desires with good things so that your youth is renewed like the eagle's. May you remember His goodness throughout this day."
+    text: "May you bless the Lord today with all your soul, and forget not all His benefits. He forgives all your sins and heals all your diseases. He redeems your life from the pit and crowns you with love and compassion."
   },
   {
     scripture: "Psalm 139:23-24",
     text: "May God give you clarity of mind to enable you to see blind spots in your life where you are insecure, believing lies, or forgetting what is true. May you invite God to search your heart and know your anxious thoughts. May He lead you in the way everlasting."
   },
   {
-    scripture: "Psalm 119:105",
-    text: "May God's word be a lamp to your feet and a light to your path today. In moments of uncertainty, may you turn to His truth to guide your steps. His word is living and active, sharper than any two-edged sword. It is able to bring clarity and direction."
-  },
-  {
-    scripture: "Isaiah 40:31",
-    text: "May you wait on the Lord today and find your strength renewed. May you soar on wings like eagles, rising above every challenge. May you run without growing weary in your calling. May you walk through your day without growing faint. The Lord is the everlasting God, the Creator of all things. He will not grow tired or weary. He freely gives power to those who are weak."
+    scripture: "Isaiah 40:28-31",
+    text: "May you wait on the Lord today and find your strength renewed. May you run and not grow weary, walk and not grow faint. The Lord is the everlasting God. He will not grow tired or weary, and He gives power to those who are weak."
   },
   {
     scripture: "Joshua 1:9",
-    text: "May you be strong and courageous today. May you not be afraid or discouraged, for the Lord your God is with you wherever you go. He goes before you and walks beside you. He will never leave you nor forsake you. Take heart in knowing that the God who is mighty to save is the God who fights for you."
+    text: "May you be strong and courageous today. May you not be afraid or discouraged, for the Lord your God is with you wherever you go. He will never leave you nor forsake you."
   },
   {
     scripture: "Daniel 3:17-18, Psalm 56:3",
@@ -133,20 +125,16 @@ export const blessings: Blessing[] = [
     text: "May you live for the glory of God, not for your own glory. Remember all you have is from Him. Whether you eat or drink, or whatever you do, do it all for the glory of God. Not to us, Lord, not to us, but to Your name be the glory."
   },
   {
-    scripture: "Psalm 34:5",
-    text: "May you look to the Lord and be radiant today. May your face never be covered with shame. May you remember that those who look to Him are radiant, their faces never covered with shame. May His light shine through you to others."
-  },
-  {
     scripture: "Psalm 145:8-9",
-    text: "May you remember today that the Lord is gracious and compassionate, slow to anger and rich in love. May you know that the Lord is good to all, and He has compassion on all He has made. May this truth about His character bring you comfort and move you to show the same grace to others."
+    text: "May you remember today that the Lord is gracious and compassionate, slow to anger and rich in love. The Lord is good to all, and He has compassion on all He has made. May you show others the same grace He shows you."
   },
   {
     scripture: "Psalm 86:11",
-    text: "May God teach you His way, Lord, that you may rely on His faithfulness. May He give you an undivided heart, that you may fear His name. May this be your prayer today - that God would give you a heart fully devoted to Him, undistracted by the things of this world."
+    text: "May God teach you His way, that you may rely on His faithfulness. May He give you an undivided heart, fully devoted to Him."
   },
   {
     scripture: "Psalm 90:12",
-    text: "May God teach us to number our days, that we may gain a heart of wisdom. May you live today with eternity in mind, making the most of every moment. May you remember that our days are precious gifts from God."
+    text: "May God teach you to number your days, that you may gain a heart of wisdom. May you live today with eternity in mind."
   }
 ];
 

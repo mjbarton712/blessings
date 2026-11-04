@@ -1,280 +1,405 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { gsap } from 'gsap';
-import { Blessing } from '@/lib/blessings';
+import { Blessing, getTodaysBlessing } from '@/lib/blessings';
+import { sortCanonically, splitSentences, typeset } from '@/lib/format';
 
 interface BlessingDisplayProps {
   blessings: Blessing[];
 }
 
+/** Seconds between sentences: longer sentences get more time to settle. */
+function pauseFor(sentence: string) {
+  const words = sentence.split(/\s+/).length;
+  return Math.min(6, Math.max(2.5, 1.2 + words * 0.3));
+}
+
+function prefersReducedMotion() {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 export default function BlessingDisplay({ blessings }: BlessingDisplayProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const pickerRef = useRef<HTMLDivElement>(null);
-  const pickerContainerRef = useRef<HTMLDivElement>(null);
-  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [sentences, setSentences] = useState<string[]>([]);
-  const [currentBlessing, setCurrentBlessing] = useState<Blessing | null>(null);
-  const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [scrollPosition, setScrollPosition] = useState(0);
-  const [pickerPadding, setPickerPadding] = useState(0);
-  
-  // Sort blessings alphabetically by scripture - memoize to prevent infinite loops
-  const sortedBlessings = useMemo(() => {
-    return [...blessings].sort((a, b) => 
-      a.scripture.localeCompare(b.scripture)
+  const [current, setCurrent] = useState<Blessing | null>(null);
+  const [today, setToday] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const textRef = useRef<HTMLDivElement>(null);
+  const timelineRef = useRef<gsap.core.Timeline | null>(null);
+  const browseButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const currentItemRef = useRef<HTMLButtonElement>(null);
+
+  const sorted = useMemo(() => sortCanonically(blessings), [blessings]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter(
+      (b) => b.scripture.toLowerCase().includes(q) || b.text.toLowerCase().includes(q),
     );
-  }, [blessings]);
+  }, [sorted, query]);
 
-  // Set random blessing on initial load
+  // Date-dependent values are resolved on the client to avoid hydration mismatch.
   useEffect(() => {
-    const randomIndex = Math.floor(Math.random() * sortedBlessings.length);
-    setCurrentBlessing(sortedBlessings[randomIndex]);
-  }, []); // Empty dependency - only run once on mount
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCurrent(getTodaysBlessing());
+    setToday(
+      new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }),
+    );
+  }, []);
 
-  // Calculate picker padding when picker opens
-  useEffect(() => {
-    if (isPickerOpen && pickerContainerRef.current) {
-      const height = pickerContainerRef.current.clientHeight;
-      const itemHeight = 48;
-      const padding = (height / 2) - (itemHeight / 2);
-      setPickerPadding(padding);
-    }
-  }, [isPickerOpen]);
+  const sentences = useMemo(
+    () => (current ? splitSentences(typeset(current.text)) : []),
+    [current],
+  );
 
-  // Handle scroll to update visual feedback in real-time
-  useEffect(() => {
-    if (!pickerRef.current) return;
-    
-    const handleScroll = () => {
-      if (!pickerRef.current) return;
-      
-      const itemHeight = 48; // h-12 = 48px
-      const pickerHeight = pickerRef.current.clientHeight;
-      const centerOfPicker = pickerHeight / 2;
-      
-      // Find which item is closest to the center of the picker
-      let closestIndex = 0;
-      let smallestDistance = Infinity;
-      
-      itemRefs.current.forEach((itemEl, idx) => {
-        if (!itemEl) return;
-        
-        const rect = itemEl.getBoundingClientRect();
-        const pickerRect = pickerRef.current!.getBoundingClientRect();
-        
-        // Calculate item's center relative to picker's top
-        const itemCenterInPicker = rect.top + (rect.height / 2) - pickerRect.top;
-        const distanceFromCenter = Math.abs(itemCenterInPicker - centerOfPicker);
-        
-        if (distanceFromCenter < smallestDistance) {
-          smallestDistance = distanceFromCenter;
-          closestIndex = idx;
-        }
-        
-        // Calculate visual effects based on distance from center
-        const distanceInItems = distanceFromCenter / itemHeight;
-        
-        let opacity = 1;
-        if (distanceInItems > 0.5) {
-          opacity = Math.max(0.1, 1 - (distanceInItems - 0.5) * 0.4);
-        }
-        
-        let scale = 1;
-        if (distanceInItems > 0.5) {
-          scale = Math.max(0.85, 1 - (distanceInItems - 0.5) * 0.08);
-        }
-        
-        itemEl.style.opacity = String(opacity);
-        itemEl.style.transform = `scale(${scale})`;
-      });
-      
-      setSelectedIndex(closestIndex);
-    };
+  // Sentence-by-sentence reveal.
+  useLayoutEffect(() => {
+    const root = textRef.current;
+    if (!root || sentences.length === 0) return;
+    const els = Array.from(root.querySelectorAll<HTMLElement>('[data-sentence]'));
+    const meta = root.parentElement?.querySelectorAll<HTMLElement>('[data-meta]') ?? [];
 
-    const picker = pickerRef.current;
-    picker.addEventListener('scroll', handleScroll, { passive: true });
-    
-    // Initial calculation after a brief delay to ensure rendering is complete
-    setTimeout(handleScroll, 100);
-    
-    return () => picker.removeEventListener('scroll', handleScroll);
-  }, [sortedBlessings.length, isPickerOpen]);
-
-  useEffect(() => {
-    if (!currentBlessing) return;
-    // Split the blessing text into sentences, keeping quotes with their punctuation
-    const splitText = currentBlessing.text.match(/[^.!?]+(?:'[^']*'[.!?]*)?[.!?]+/g) || [currentBlessing.text];
-    setSentences(splitText.map(s => s.trim()));
-  }, [currentBlessing]);
-
-  useEffect(() => {
-    if (sentences.length === 0 || !containerRef.current) return;
-
-    console.log('Running animation for', sentences.length, 'sentences');
-
-    const sentenceElements = containerRef.current.querySelectorAll('.sentence');
-    
-    if (sentenceElements.length === 0) {
-      console.log('No sentence elements found');
+    if (prefersReducedMotion()) {
+      gsap.set([...els, ...meta], { opacity: 1, filter: 'none' });
       return;
     }
 
-    // Set initial state - all sentences invisible
-    gsap.set(sentenceElements, { 
-      opacity: 0,
-      y: 20
+    gsap.set(els, { opacity: 0, filter: 'blur(6px)' });
+    const tl = gsap.timeline();
+    tl.fromTo(meta, { opacity: 0 }, { opacity: 1, duration: 1.2, ease: 'power1.out' }, 0);
+
+    let at = 0.5;
+    els.forEach((el, i) => {
+      tl.to(el, { opacity: 1, filter: 'blur(0px)', duration: 1.8, ease: 'power2.out' }, at);
+      at += pauseFor(sentences[i]);
     });
 
-    // Create a timeline for sequential fade-ins
-    const timeline = gsap.timeline();
-
-    sentenceElements.forEach((element, index) => {
-      timeline.to(element, {
-        opacity: 1,
-        y: 0,
-        duration: 2,
-        ease: 'power2.out',
-      }, `+=${index === 0 ? 0.5 : 4}`);
-    });
-
-    console.log('Animation timeline created');
-
+    timelineRef.current = tl;
     return () => {
-      timeline.kill();
+      tl.kill();
+      timelineRef.current = null;
     };
   }, [sentences]);
 
-  const handleBlessingSelect = () => {
-    console.log('Selected index:', selectedIndex);
-    console.log('Selected blessing:', sortedBlessings[selectedIndex]);
-    setCurrentBlessing(sortedBlessings[selectedIndex]);
-    setIsPickerOpen(false);
+  const revealAll = useCallback(() => {
+    const tl = timelineRef.current;
+    if (tl && tl.progress() < 1) {
+      gsap.to(tl, { progress: 1, duration: 0.6, ease: 'power1.inOut' });
+    }
+  }, []);
+
+  const choose = useCallback((b: Blessing) => {
+    setCurrent(b);
+    setIsOpen(false);
+    setCopied(false);
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  }, []);
+
+  const shuffle = () => {
+    if (blessings.length < 2) return;
+    let next = current;
+    while (next?.scripture === current?.scripture) next = blessings[Math.floor(Math.random() * blessings.length)];
+    if (next) choose(next);
   };
 
-  if (!currentBlessing) return null;
+  const copy = async () => {
+    if (!current) return;
+    try {
+      await navigator.clipboard.writeText(`${typeset(current.text)}\n\n${typeset(current.scripture)}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable — leave the button as-is */
+    }
+  };
+
+  // Drawer: focus, Escape, scroll lock.
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const browseButton = browseButtonRef.current;
+
+    requestAnimationFrame(() => {
+      const item = currentItemRef.current;
+      if (item) {
+        item.scrollIntoView({ block: 'center' });
+        item.focus({ preventScroll: true });
+      } else {
+        drawerRef.current?.focus();
+      }
+    });
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKey);
+      browseButton?.focus({ preventScroll: true });
+    };
+  }, [isOpen]);
+
+  // Any key (outside the drawer) reveals the rest of the blessing.
+  useEffect(() => {
+    if (isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        if ((e.target as HTMLElement)?.closest('button, a, input')) return;
+        e.preventDefault();
+        revealAll();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, revealAll]);
+
+  const isLong = (current?.text.length ?? 0) > 420;
 
   return (
     <>
-      {/* Hamburger Menu Button */}
-      <button
-        onClick={() => setIsPickerOpen(!isPickerOpen)}
-        className="fixed top-6 right-6 z-50 w-12 h-12 flex flex-col items-center justify-center gap-1.5 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition-all"
-        aria-label="Open blessing picker"
-      >
-        <span className={`w-6 h-0.5 bg-slate-600 transition-all duration-300 ${isPickerOpen ? 'rotate-45 translate-y-2' : ''}`} />
-        <span className={`w-6 h-0.5 bg-slate-600 transition-all duration-300 ${isPickerOpen ? 'opacity-0' : ''}`} />
-        <span className={`w-6 h-0.5 bg-slate-600 transition-all duration-300 ${isPickerOpen ? '-rotate-45 -translate-y-2' : ''}`} />
-      </button>
+      {/* Header */}
+      <header className="fixed inset-x-0 top-0 z-20 flex items-center justify-between px-5 pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-8">
+        <span className="flex items-center gap-2 font-serif text-lg italic text-ink-soft">
+          <SunMark />
+          Blessings
+        </span>
+        <button
+          ref={browseButtonRef}
+          type="button"
+          onClick={() => setIsOpen(true)}
+          aria-expanded={isOpen}
+          aria-controls="blessing-drawer"
+          className="flex items-center gap-2 rounded-full border border-line bg-paper-raised/70 px-4 py-2 text-sm text-ink-soft backdrop-blur-sm transition-colors hover:border-ink-faint/50 hover:text-ink"
+        >
+          <ListIcon />
+          Browse
+        </button>
+      </header>
 
-      {/* Picker Drawer */}
-      <div className={`fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-40 transition-transform duration-300 ease-out ${isPickerOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="p-6 h-full flex flex-col">
-          <h3 className="text-lg font-light text-slate-700 mb-6 text-center">Choose a Blessing</h3>
-          
-          {/* iOS-style Rotating Picker */}
-          <div ref={pickerContainerRef} className="flex-1 relative overflow-hidden rounded-lg">
-            <div className="absolute inset-0 pointer-events-none z-10">
-              {/* Top fade */}
-              <div className="absolute top-0 left-0 right-0 h-32 bg-linear-to-b from-white via-white/50 to-transparent" />
-              {/* Center highlight */}
-              <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-12 border-y border-slate-200 bg-amber-50/30" />
-              {/* Bottom fade */}
-              <div className="absolute bottom-0 left-0 right-0 h-32 bg-linear-to-t from-white via-white/50 to-transparent" />
-            </div>
-            
-            <div 
-              ref={pickerRef}
-              className="h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
-              style={{ 
-                scrollSnapType: 'y mandatory',
-                paddingTop: `${pickerPadding}px`,
-                paddingBottom: `${pickerPadding}px`
-              }}
-            >
-              {sortedBlessings.map((blessing, index) => (
-                <div
-                  key={blessing.scripture}
-                  ref={(el) => { itemRefs.current[index] = el; }}
-                  className="h-12 snap-center flex items-center justify-center cursor-pointer"
-                  style={{ 
-                    transition: 'opacity 0.1s ease-out, transform 0.1s ease-out'
-                  }}
-                  onClick={(e) => {
-                    const target = e.currentTarget;
-                    target.scrollIntoView({
-                      behavior: 'smooth',
-                      block: 'center',
-                      inline: 'center'
-                    });
-                  }}
-                >
-                  <p className={`text-sm text-center px-4 transition-colors duration-100 ${
-                    index === selectedIndex ? 'text-slate-950 font-bold' : 'text-slate-500'
-                  }`}>
-                    {blessing.scripture}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <button
-            onClick={handleBlessingSelect}
-            className="mt-6 w-full py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors font-light text-sm tracking-wide"
-          >
-            Select Blessing
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="min-h-screen w-full flex items-center justify-center bg-linear-to-br from-slate-50 via-amber-50 to-slate-100 px-6 py-12">
-        <div className="max-w-3xl w-full">
-          <div className="text-center mb-8">
-            <h2 className="text-sm uppercase tracking-widest text-slate-500 font-light mb-2">
-              Welcome
-            </h2>
-            <p className="text-xs text-slate-400 font-light italic">
-              {currentBlessing.scripture}
+      {/* Blessing */}
+      <main className="flex min-h-svh items-center justify-center px-6 pb-16 pt-28 sm:px-10">
+        {current && (
+          <article key={current.scripture} className="flex w-full max-w-[40rem] flex-col items-center text-center">
+            <p data-meta className="mb-10 text-[0.7rem] font-medium uppercase tracking-[0.22em] text-ink-faint">
+              {today}
             </p>
-          </div>
-          
-          <div 
-            ref={containerRef}
-            className="space-y-6"
-          >
-            {sentences.map((sentence, index) => (
-              <p
-                key={index}
-                className="sentence text-xl md:text-2xl lg:text-3xl leading-relaxed text-slate-700 font-light text-center"
-              >
-                {sentence}
+
+            <div
+              ref={textRef}
+              onClick={revealAll}
+              className={`font-serif font-light leading-[1.6] text-ink [text-wrap:pretty] ${
+                isLong
+                  ? 'text-[1.3rem] sm:text-[1.55rem] md:text-[1.7rem]'
+                  : 'text-[1.45rem] sm:text-[1.75rem] md:text-[2rem]'
+              }`}
+            >
+              <p>
+                {sentences.map((s, i) => (
+                  <span key={i} data-sentence>
+                    {s}
+                    {i < sentences.length - 1 ? ' ' : ''}
+                  </span>
+                ))}
               </p>
-            ))}
-          </div>
-        </div>
-      </div>
+            </div>
+
+            <div data-meta className="mt-10 flex flex-col items-center gap-8">
+              <p className="flex items-center gap-3 font-serif text-base italic text-gold sm:text-lg">
+                <span aria-hidden className="h-px w-6 bg-gold/40" />
+                {typeset(current.scripture)}
+                <span aria-hidden className="h-px w-6 bg-gold/40" />
+              </p>
+
+              <div className="flex items-center gap-1 text-sm text-ink-faint">
+                <QuietButton onClick={shuffle}>
+                  <ShuffleIcon />
+                  Another blessing
+                </QuietButton>
+                <span aria-hidden className="text-line">·</span>
+                <QuietButton onClick={copy}>
+                  {copied ? <CheckIcon /> : <CopyIcon />}
+                  <span aria-live="polite">{copied ? 'Copied' : 'Copy'}</span>
+                </QuietButton>
+              </div>
+            </div>
+          </article>
+        )}
+      </main>
 
       {/* Overlay */}
-      {isPickerOpen && (
-        <div 
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-30 transition-opacity duration-300"
-          onClick={() => setIsPickerOpen(false)}
-        />
-      )}
-      
-      {/* Hide scrollbar globally */}
-      <style jsx global>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
+      <div
+        aria-hidden
+        onClick={() => setIsOpen(false)}
+        className={`fixed inset-0 z-30 bg-[#3a2a18]/15 backdrop-blur-[2px] transition-opacity duration-300 ${
+          isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
+
+      {/* Drawer */}
+      <div
+        id="blessing-drawer"
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="drawer-title"
+        tabIndex={-1}
+        inert={!isOpen}
+        className={`fixed inset-y-0 right-0 z-40 flex w-full flex-col bg-paper-raised outline-none transition-[transform,box-shadow] duration-300 ease-out sm:w-[26rem] ${
+          isOpen ? 'translate-x-0 shadow-[0_0_60px_-15px_rgba(80,55,25,0.25)]' : 'translate-x-full shadow-none'
+        }`}
+      >
+        <div className="flex items-start justify-between gap-4 px-6 pb-4 pt-[max(1.5rem,env(safe-area-inset-top))]">
+          <div>
+            <h2 id="drawer-title" className="font-serif text-2xl text-ink">
+              All blessings
+            </h2>
+            <p className="mt-1 text-sm text-ink-faint">{blessings.length} blessings, in Bible order</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            aria-label="Close"
+            className="-mr-2 rounded-full p-2 text-ink-faint transition-colors hover:bg-line/60 hover:text-ink"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+
+        <div className="px-6 pb-3">
+          <label htmlFor="blessing-search" className="sr-only">
+            Search blessings
+          </label>
+          <input
+            id="blessing-search"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by verse or word"
+            className="w-full rounded-xl border border-line bg-paper px-4 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:border-gold/50 focus:outline-none focus-visible:outline-none"
+          />
+        </div>
+
+        <ul className="scrollbar-quiet flex-1 overflow-y-auto px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          {filtered.map((b) => {
+            const active = b.scripture === current?.scripture;
+            return (
+              <li key={b.scripture}>
+                <button
+                  ref={active ? currentItemRef : undefined}
+                  type="button"
+                  onClick={() => choose(b)}
+                  aria-current={active ? 'true' : undefined}
+                  className={`group w-full rounded-xl px-3 py-3 text-left transition-colors ${
+                    active ? 'bg-glow/50' : 'hover:bg-paper'
+                  }`}
+                >
+                  <span className="flex items-center gap-2 font-serif text-[1.05rem] text-ink">
+                    {typeset(b.scripture.split(',')[0])}
+                    {b.scripture.includes(',') && (
+                      <span className="text-sm text-ink-faint">+{b.scripture.split(',').length - 1}</span>
+                    )}
+                    {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-gold" aria-hidden />}
+                  </span>
+                  <span className="mt-0.5 line-clamp-1 text-sm text-ink-faint group-hover:text-ink-soft">
+                    {typeset(b.text)}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+          {filtered.length === 0 && (
+            <li className="px-3 py-8 text-center text-sm text-ink-faint">
+              Nothing matches “{query}”. Try a book name like “Psalm” or a word like “peace”.
+            </li>
+          )}
+        </ul>
+      </div>
     </>
+  );
+}
+
+function QuietButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors hover:bg-paper-raised hover:text-ink-soft"
+    >
+      {children}
+    </button>
+  );
+}
+
+const iconProps = {
+  width: 16,
+  height: 16,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.6,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+  'aria-hidden': true,
+};
+
+function SunMark() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden className="text-gold/70">
+      <circle cx="12" cy="14" r="4" fill="currentColor" />
+      <g stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <path d="M12 5v2.5M5.6 8.2l1.7 1.7M18.4 8.2l-1.7 1.7M3.5 14H6M18 14h2.5" />
+        <path d="M4 19h16" />
+      </g>
+    </svg>
+  );
+}
+
+function ListIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M8 6h12M8 12h12M8 18h12" />
+      <circle cx="4" cy="6" r="0.6" fill="currentColor" />
+      <circle cx="4" cy="12" r="0.6" fill="currentColor" />
+      <circle cx="4" cy="18" r="0.6" fill="currentColor" />
+    </svg>
+  );
+}
+
+function ShuffleIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg {...iconProps}>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h8" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg {...iconProps}>
+      <path d="M5 12.5 10 17 19 7" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg {...iconProps} width={20} height={20}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
   );
 }

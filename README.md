@@ -4,7 +4,7 @@ A beautiful, distraction-free web application for displaying scripture-based ble
 
 ## ✨ Features
 
-- **35+ Scripture-Based Blessings** - A rich collection of blessings drawn from Psalms, the Gospels, and Epistles
+- **33 Scripture-Based Blessings** - A rich collection of blessings drawn from Psalms, the Gospels, and Epistles
 - **Daily Rotation** - A different blessing each day based on the day of year, ensuring consistency throughout the day
 - **Beautiful Animations** - Sentences fade in one by one using GSAP, with 4-second pauses for meditation
 - **Minimalist Design** - Clean, distraction-free UI with soft gradients and elegant typography
