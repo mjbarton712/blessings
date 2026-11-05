@@ -6,7 +6,7 @@ import type { Blessing } from './blessings';
  */
 export function typeset(text: string): string {
   return text
-    .replace(/\s+-\s+/g, '—') // " - " → em dash
+    .replace(/\s+-\s+/g, '\u2060—') // " - " → em dash, never starting a line
     .replace(/(\d)-(\d)/g, '$1–$2') // verse ranges → en dash
     .replace(/(^|[\s(—])'/g, '$1‘') // opening single quote
     .replace(/'/g, '’'); // closing quote / apostrophe

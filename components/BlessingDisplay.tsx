@@ -148,7 +148,8 @@ export default function BlessingDisplay({ blessings }: BlessingDisplayProps) {
   const copy = async () => {
     if (!current) return;
     try {
-      await navigator.clipboard.writeText(`${typeset(current.text)}\n\n${typeset(current.scripture)}`);
+      const plain = `${typeset(current.text)}\n\n${typeset(current.scripture)}`.replace(/\u2060/g, '');
+      await navigator.clipboard.writeText(plain);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -353,9 +354,8 @@ export default function BlessingDisplay({ blessings }: BlessingDisplayProps) {
             >
               <p>
                 {sentences.map((s, i) => (
-                  <span key={i} data-sentence>
+                  <span key={i} data-sentence className={`block ${i > 0 ? 'mt-[0.45em]' : ''}`}>
                     {s}
-                    {i < sentences.length - 1 ? ' ' : ''}
                   </span>
                 ))}
               </p>
